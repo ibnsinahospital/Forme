@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><title>Games</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#100B12">
+<style>
+:root{--bg:#100B12;--bg2:#19111C;--card:#211722;--pri:#E879A5;--text:#F8EAF0;--muted:#A99AA5;--bd:rgba(232,121,165,.25);--chat-h:0px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 12px calc(20px + env(safe-area-inset-bottom) + var(--chat-h));transition:padding-bottom .3s;-webkit-user-select:none;user-select:none;background:radial-gradient(60% 40% at 12% 0%,rgba(232,121,165,.16),transparent 70%),radial-gradient(50% 40% at 100% 100%,rgba(120,80,200,.12),transparent 70%),var(--bg)}
+h1{margin:0;font:600 1.6rem Georgia,serif;color:var(--pri);text-align:center}
+button{font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:10px 16px;min-height:44px;cursor:pointer;transition:transform .15s,background .2s,box-shadow .2s}
+button:active:not(:disabled){transform:scale(.94)}button:disabled{opacity:.4;cursor:default}button.pri{background:linear-gradient(135deg,#C2477E,#9B3A6B);border-color:#C2477E}button.big{font-size:1.15rem;padding:14px 24px}
+button:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+.row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;width:100%}.hidden{display:none!important}
+.wait{color:var(--muted);text-align:center;margin:6px 0}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--card);border:1px solid var(--pri);padding:10px 16px;border-radius:12px;z-index:50;max-width:90vw;text-align:center}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<style>
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(94vw,520px)}
+.gc{position:relative;display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left;padding:16px;border-radius:20px;min-height:128px;background:linear-gradient(160deg,rgba(40,26,44,.95),rgba(26,18,30,.95));text-decoration:none;color:var(--text);border:1px solid var(--bd);overflow:hidden;animation:cIn .5s cubic-bezier(.2,1.2,.4,1) backwards;transition:transform .2s,box-shadow .25s}
+.gc:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(232,121,165,.2)}.gc:active{transform:scale(.97)}@keyframes cIn{from{opacity:0;transform:translateY(16px) scale(.95)}}
+.gc .e{font-size:2rem;width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(135deg,rgba(232,121,165,.3),rgba(155,58,107,.16))}.gc b{font-size:1.02rem}.gc small{color:var(--muted);font-size:12px;line-height:1.3}
+.gc.soon{opacity:.5;pointer-events:none}.gc.soon::after{content:'SOON';position:absolute;top:10px;right:10px;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--pri);border:1px solid var(--bd);border-radius:8px;padding:2px 6px}
+#ban{width:min(94vw,520px);padding:12px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(232,121,165,.25),rgba(155,58,107,.2));border:1px solid var(--pri);display:flex;gap:10px;align-items:center;justify-content:space-between;animation:cIn .5s both}
+#ban a{background:#C2477E;color:#fff;border-radius:12px;padding:10px 16px;text-decoration:none;font-weight:700}
+</style></head><body>
+<h1>🎮 Games for two</h1><div id="ban" class="hidden"></div><div class="grid" id="grid"></div><button id="back">← Back to lobby</button>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {getFirestore,doc,onSnapshot} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import {initChat} from './chat.js';
+import {GAMES} from './games.js';
+const firebaseConfig = {
+    apiKey: "AIzaSyAQg9F4Sn3GsZOghWxSJqwbLMsJetvo03w",
+    authDomain: "shizu-c984a.firebaseapp.com",
+    projectId: "shizu-c984a",
+    storageBucket: "shizu-c984a.firebasestorage.app",
+    messagingSenderId: "512395203618",
+    appId: "1:512395203618:web:496a2f959a3545975c667b"
+  };
+const db=getFirestore(initializeApp(firebaseConfig)),$=id=>document.getElementById(id);
+const me=localStorage.getItem('shizu_user'),roomId=localStorage.getItem('shizu_room'),partner=localStorage.getItem('shizu_partner');
+if(!me||!roomId||!partner){location.replace('index.html');throw new Error('no session');}
+const SOON=[];
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+$('grid').innerHTML=Object.entries(GAMES).map(([id,g],i)=>`<a class="gc" style="animation-delay:${i*.04}s" href="play.html?g=${id}"><span class="e">${g.emoji}</span><b>${g.title}</b><small>${g.desc}</small></a>`).join('')+SOON.map(([e,t],i)=>`<div class="gc soon"><span class="e">${e}</span><b>${t}</b><small>Coming soon</small></div>`).join('');
+$('back').onclick=()=>location.href='index.html';
+onSnapshot(doc(db,'rooms',roomId),s=>{const d=s.data(),p=d&&d.gamePing;if(p&&p.by!==me&&Date.now()-p.ts<600000&&GAMES[p.g]){$('ban').innerHTML=`<span>💕 <b>${esc(p.by)}</b> opened <b>${esc(GAMES[p.g].title)}</b></span><a href="play.html?g=${p.g}">Join</a>`;$('ban').classList.remove('hidden');}else $('ban').classList.add('hidden');},()=>{});
+initChat({db,roomId,me,partner,widget:false});
+</script></body></html>

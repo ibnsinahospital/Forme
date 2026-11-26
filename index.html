@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SHIZU — A Little Game for Two Hearts</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #100B12; --bg-sec: #19111C; --card: #211722;
+      --primary: #E879A5; --secondary: #B96A91;
+      --text: #F8EAF0; --muted: #A99AA5;
+      --border: rgba(232, 121, 165, 0.16);
+      --green: #4CAF50; --red: #ff4d4d;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+    body {
+      font-family: 'Inter', sans-serif; text-align: center;
+      padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
+      background: var(--bg); color: var(--text); margin: 0;
+      overflow-x: hidden; min-height: 100vh; min-height: 100dvh;
+    }
+
+    h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 600; margin-top: 0; }
+    .hidden { display: none !important; }
+
+    /* ---------- background hearts (transform/opacity only) ---------- */
+    .heart-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+    .heart-particle { position: absolute; bottom: -30px; color: var(--primary); opacity: 0; animation: floatUp 8s linear infinite; will-change: transform, opacity; }
+    @keyframes floatUp {
+      0% { transform: translate3d(0, 0, 0) scale(0.8); opacity: 0; }
+      10% { opacity: 0.15; } 90% { opacity: 0.15; }
+      100% { transform: translate3d(0, -110vh, 0) scale(1.2); opacity: 0; }
+    }
+
+    /* ---------- splash + start overlay ---------- */
+    #splash-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s; }
+    .splash-logo { font-family: 'Playfair Display', serif; font-size: 3.5rem; font-weight: 700; color: var(--primary); margin: 0; animation: fadeIn 1.2s forwards; opacity: 0; }
+    .splash-sub { color: var(--muted); font-size: 14px; margin-top: 10px; animation: fadeIn 1.6s forwards; opacity: 0; }
+    .fade-out { opacity: 0 !important; pointer-events: none; }
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    #transition-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 9998; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    #transition-overlay.active { opacity: 1; pointer-events: all; }
+    #transition-overlay img { height: 220px; width: auto; max-width: 70vw; border-radius: 18px; object-fit: cover; }
+    #transition-overlay.active img { animation: spinAndGrow 1s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+    @keyframes spinAndGrow { 0% { transform: scale(0.6) rotate(0deg); opacity: 0; } 20% { opacity: 1; } 100% { transform: scale(1.4) rotate(360deg); opacity: 1; } }
+
+    #boot { color: var(--muted); margin-top: 40vh; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.4; } }
+
+    /* ---------- layout ---------- */
+    .container { max-width: 500px; margin: 0 auto; position: relative; z-index: 10; }
+    .header { margin-bottom: 30px; }
+    .header h1 { color: var(--primary); font-size: 2.8rem; margin-bottom: 5px; letter-spacing: 1px; }
+    .header p { color: var(--muted); font-size: 14px; margin: 0; }
+
+    .card { background: linear-gradient(145deg, var(--card), var(--bg-sec)); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; margin: 20px auto; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: slideUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; opacity: 0; transform: translate3d(0, 20px, 0); }
+    @keyframes slideUp { to { opacity: 1; transform: translate3d(0, 0, 0); } }
+
+    .btn { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 16px; margin: 8px 0; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 500; cursor: pointer; width: 100%; transition: transform 0.15s ease, filter 0.2s ease, background 0.2s ease; display: flex; justify-content: center; align-items: center; gap: 10px; min-height: 44px; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .btn-primary { background: linear-gradient(135deg, #C2477E, #9B3A6B); color: #fff; border: none; font-weight: 600; box-shadow: 0 4px 15px rgba(232, 121, 165, 0.3); }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-ghost { border-color: transparent; color: var(--muted); }
+
+    .input { padding: 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%; font-size: 16px; margin-bottom: 15px; text-align: center; font-family: 'Inter', sans-serif; transition: border-color 0.3s; }
+    .input:focus { outline: none; border-color: var(--primary); }
+
+    .connection-status { display: inline-flex; align-items: center; gap: 8px; background: rgba(76, 175, 80, 0.1); color: var(--green); padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 20px; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+    .players-row { display: flex; justify-content: center; align-items: center; gap: 15px; font-family: 'Playfair Display', serif; font-size: 1.2rem; color: var(--text); }
+    .heart-connect { color: var(--primary); animation: heartbeat 1.5s infinite; }
+    @keyframes heartbeat { 0% { transform: scale(1); } 14% { transform: scale(1.2); } 28% { transform: scale(1); } 42% { transform: scale(1.2); } 70% { transform: scale(1); } }
+
+    .section-title { font-family: 'Playfair Display', serif; color: var(--text); font-size: 1.6rem; margin-top: 30px; margin-bottom: 5px; }
+    .section-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+    .game-card { display: flex; flex-direction: column; align-items: flex-start; text-align: left; background: var(--bg-sec); border: 1px solid var(--border); padding: 20px; border-radius: 16px; margin-bottom: 15px; cursor: pointer; transition: transform 0.15s; position: relative; overflow: hidden; }
+    .game-card:active { transform: scale(0.98); }
+    .game-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--primary); opacity: 0; transition: opacity 0.2s; }
+    .game-card:hover::before { opacity: 1; }
+    .game-card h3 { margin: 0 0 5px 0; color: var(--text); font-size: 1.2rem; font-family: 'Inter', sans-serif; font-weight: 600; }
+    .game-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .game-icon { font-size: 24px; margin-bottom: 10px; }
+    #hostControls.busy { opacity: 0.55; pointer-events: none; }
+
+    .chat-card { text-align: center; align-items: center; background: linear-gradient(145deg, var(--bg-sec), var(--card)); }
+    .chat-card h3 { font-family: 'Playfair Display', serif; font-size: 1.5rem; }
+    .chat-card p { margin-bottom: 14px; }
+
+    .chat-box { height: 350px; overflow-y: auto; background: var(--bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: left; display: flex; flex-direction: column; border: 1px solid var(--border); }
+    .msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; max-width: 85%; font-size: 14px; line-height: 1.4; word-wrap: break-word; animation: msgIn 0.2s ease both; }
+    @keyframes msgIn { from { opacity: 0; transform: translate3d(0, 6px, 0); } }
+    .msg-me { background: #C2477E; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .msg-other { background: var(--card); border: 1px solid var(--border); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
+    .msg-meta { font-size: 11px; color: rgba(255,255,255,0.92); margin-bottom: 4px; display: block; }
+    .chat-input-container { display: flex; gap: 10px; }
+    .chat-input-container .input { margin-bottom: 0; text-align: left; }
+    .chat-input-container .btn { width: auto; padding: 16px 24px; margin: 0; }
+    #typingIndicator { font-size: 11px; color: var(--muted); text-align: left; margin-bottom: 5px; font-style: italic; }
+
+    .settings-link { color: var(--muted); text-decoration: none; font-size: 13px; margin-top: 20px; display: inline-block; transition: color 0.2s; }
+    .settings-link:hover { color: var(--primary); }
+
+    /* ---------- game ---------- */
+    .game-top { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .badge { color: var(--muted); font-weight: bold; font-size: 12px; letter-spacing: 1px; }
+    .timer-text { color: var(--primary); font-weight: bold; font-size: 12px; transition: color 0.2s; }
+    .timer-text.urgent { color: var(--red); }
+    .timer-track { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 14px; transition: opacity 0.3s; }
+    .timer-track.done { opacity: 0.25; }
+    #timerBar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary)); transform-origin: left center; transform: scaleX(1); will-change: transform; }
+    .timer-track.urgent #timerBar { background: var(--red); }
+
+    .question { font-size: 1.3rem; margin: 20px 0; font-weight: 500; line-height: 1.4; min-height: 60px; }
+    .q-enter { animation: qIn 0.35s ease both; }
+    @keyframes qIn { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+
+    .vote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .btn-vote { background: var(--bg-sec); border: 1px solid var(--border); padding: 16px 10px; font-size: 15px; font-weight: 500; color: var(--text); cursor: pointer; border-radius: 12px; margin: 0; word-break: break-word; transition: transform 0.15s, background 0.2s, border-color 0.2s; }
+    .btn-vote:active:not(:disabled) { transform: scale(0.95); background: var(--border); }
+    .btn-vote.selected { border-color: var(--primary); background: rgba(232, 121, 165, 0.18); transform: scale(1.03); opacity: 1; }
+    .btn-vote:disabled:not(.selected) { opacity: 0.45; }
+
+    .vote-status { margin-top: 18px; font-size: 14px; color: var(--primary); font-weight: 500; min-height: 18px; }
+    .vote-status.pulse { animation: pulse 1.4s ease-in-out infinite; color: var(--muted); }
+
+    .result-card { background: var(--bg); border: 2px solid var(--primary); border-radius: 12px; padding: 20px; margin-top: 20px; text-align: left; animation: pop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+    @keyframes pop { from { opacity: 0; transform: scale(0.9); } }
+    .result-match { font-size: 20px; font-weight: 700; color: var(--primary); text-align: center; margin-top: 15px; border-top: 1px solid var(--border); padding-top: 15px; font-family: 'Playfair Display', serif; }
+
+    .burst { position: fixed; left: 50%; top: 45%; z-index: 9000; pointer-events: none; }
+    .burst span { position: absolute; color: var(--primary); font-size: 20px; animation: burstOut 1s ease-out forwards; }
+    @keyframes burstOut { from { transform: translate3d(0, 0, 0) scale(0.5); opacity: 1; } to { transform: translate3d(var(--dx), var(--dy), 0) scale(1.1); opacity: 0; } }
+
+    .join-prompt { background: rgba(232, 121, 165, 0.1); border: 2px solid var(--primary); margin-top: 20px; padding: 20px; border-radius: 16px; animation: slideUp 0.4s ease both; }
+
+    .summary-item { background: var(--bg); padding: 10px; margin-bottom: 8px; border-radius: 8px; border-left: 2px solid var(--primary); font-size: 14px; line-height: 1.5; }
+    .summary-q { color: var(--muted); font-size: 12px; display: block; margin-bottom: 2px; }
+
+    /* ---------- toast + modal ---------- */
+    #toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate3d(-50%, 20px, 0); background: var(--card); border: 1px solid var(--primary); color: var(--text); padding: 12px 18px; border-radius: 12px; font-size: 14px; z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; max-width: 90vw; }
+    #toast.show { opacity: 1; transform: translate3d(-50%, 0, 0); }
+
+    #appModal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10001; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    #appModal.active { opacity: 1; pointer-events: all; }
+    .modal-box { background: var(--card); border: 1px solid var(--border); padding: 20px; border-radius: 16px; width: 80%; max-width: 320px; text-align: center; transform: scale(0.92); transition: transform 0.2s; }
+    #appModal.active .modal-box { transform: scale(1); }
+    .modal-box h3 { color: var(--primary); margin-bottom: 10px; }
+    .modal-box p { font-size: 14px; margin-bottom: 16px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+      .card { opacity: 1; transform: none; }
+      .splash-logo, .splash-sub { opacity: 1; }
+      .heart-particle { display: none; }
+    }
+  
+    /* ===== v2 polish: looks + animations ===== */
+    body::before { content: ''; position: fixed; inset: -20%; z-index: -2; pointer-events: none;
+      background: radial-gradient(40% 35% at 20% 20%, rgba(232,121,165,.16), transparent 70%), radial-gradient(35% 30% at 85% 75%, rgba(147,80,160,.14), transparent 70%), radial-gradient(30% 30% at 70% 15%, rgba(255,170,120,.07), transparent 70%);
+      animation: aurora 22s ease-in-out infinite alternate; }
+    @keyframes aurora { to { transform: translate3d(4%, 3%, 0) scale(1.08); } }
+    .card { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 10px 34px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05); }
+    .btn, .btn-vote, .game-card { position: relative; overflow: hidden; transition: transform .18s cubic-bezier(.3,1.4,.5,1), box-shadow .25s, filter .2s, border-color .25s, background-color .25s; }
+    .btn:active:not(:disabled), .btn-vote:active:not(:disabled) { transform: scale(.96); }
+    .btn-primary { background: linear-gradient(135deg, #C2477E, #9B3A6B, #C2477E); background-size: 200% 200%; animation: sheen 6s ease infinite; }
+    @keyframes sheen { 50% { background-position: 100% 50%; } }
+    .game-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(232,121,165,.18); }
+    .game-icon { display: inline-block; animation: bob 3.2s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(-4px) rotate(-4deg); } }
+    .ripple { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: rgba(255,255,255,.35); pointer-events: none; animation: rip .65s ease-out forwards; }
+    @keyframes rip { to { transform: scale(30); opacity: 0; } }
+    .btn-vote.selected { animation: pick .45s cubic-bezier(.2,1.5,.4,1); }
+    @keyframes pick { 40% { transform: scale(1.07); } }
+    .result-card { animation: resultIn .6s cubic-bezier(.2,1.3,.4,1) both; }
+    @keyframes resultIn { from { transform: translateY(16px) scale(.92); opacity: 0; } }
+    .result-match.yes { text-shadow: 0 0 20px rgba(232,121,165,.85); animation: matchPop .7s cubic-bezier(.2,1.6,.4,1) both; }
+    .result-card:has(.result-match.yes) { box-shadow: 0 0 34px rgba(232,121,165,.4); animation: resultIn .6s cubic-bezier(.2,1.3,.4,1) both, glow 2.2s ease-in-out .6s infinite; }
+    @keyframes matchPop { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.18); } }
+    @keyframes glow { 50% { box-shadow: 0 0 48px rgba(232,121,165,.75); } }
+    .msg { animation: msgIn .28s ease-out; }
+    @keyframes msgIn { from { transform: translateY(8px) scale(.96); opacity: 0; } }
+    #timerBar { background: linear-gradient(90deg, #E879A5, #ffb199); }
+    .join-prompt { animation: resultIn .5s cubic-bezier(.2,1.3,.4,1) both; }
+    .game-card:has(.game-icon) { display: grid; grid-template-columns: 58px 1fr; column-gap: 14px; align-items: center; text-align: left; padding: 14px 40px 14px 16px; }
+    .game-card:has(.game-icon) .game-icon { grid-row: 1 / 3; width: 58px; height: 58px; display: grid; place-items: center; font-size: 28px; margin: 0; border-radius: 18px; background: linear-gradient(135deg, rgba(232,121,165,.28), rgba(155,58,107,.16)); box-shadow: inset 0 0 18px rgba(232,121,165,.22); }
+    .game-card:has(.game-icon) h3 { margin: 0; font-size: 1.05rem; }
+    .game-card:has(.game-icon) p { margin: 3px 0 0; font-size: 13px; }
+    .game-card:has(.game-icon)::after { content: '›'; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 28px; color: var(--primary); opacity: .65; transition: transform .2s; }
+    .game-card:has(.game-icon):hover::after { transform: translate(4px, -50%); }
+    .game-card { animation: cardIn .5s cubic-bezier(.2,1.2,.4,1) backwards; }
+    .game-card:nth-child(2) { animation-delay: .06s; } .game-card:nth-child(3) { animation-delay: .12s; } .game-card:nth-child(4) { animation-delay: .18s; } .game-card:nth-child(5) { animation-delay: .24s; } .game-card:nth-child(6) { animation-delay: .3s; }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+    .summary-item { animation: cardIn .45s cubic-bezier(.2,1.2,.4,1) backwards; }
+    .summary-item:nth-child(2) { animation-delay: .05s; } .summary-item:nth-child(3) { animation-delay: .1s; } .summary-item:nth-child(4) { animation-delay: .15s; } .summary-item:nth-child(5) { animation-delay: .2s; } .summary-item:nth-child(n+6) { animation-delay: .25s; }
+    .badge, .timer-text { font-variant-numeric: tabular-nums; }
+    @media (prefers-reduced-motion: reduce) { .game-card, .summary-item { animation: none !important; } }
+    @media (prefers-reduced-motion: reduce) { body::before, .btn-primary, .game-icon, .result-match, .ripple { animation: none !important; } }
+  </style>
+</head>
+<body>
+
+<div class="heart-bg" id="heartBg"></div>
+<input type="file" id="ludoImageUpload" accept="image/*" class="hidden" onchange="window.handleLudoImageUpload(event)">
+
+<div id="splash-screen">
+  <h1 class="splash-logo">SHIZU</h1>
+  <p class="splash-sub">A Little Game for Two Hearts.</p>
+</div>
+<div id="transition-overlay"><img src="animation.webp" alt="" onerror="this.style.display='none'"></div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div id="appModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Confirm</h3>
+    <p id="modalMessage"></p>
+    <button class="btn btn-primary" id="modalConfirmBtn" onclick="window.closeModal(true)">OK</button>
+    <button class="btn btn-ghost" onclick="window.closeModal(false)">Cancel</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="header">
+    <h1>SHIZU 🤍</h1>
+    <p>Your little world, together.</p>
+  </div>
+
+  <p id="boot" class="hidden">Connecting…</p>
+
+  <div id="page-auth" class="card hidden">
+    <h2 id="authTitle">Welcome Back</h2>
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 20px;">Sign in to your private world.</p>
+    <input type="text" id="username" class="input" placeholder="Username" aria-label="Username" autocomplete="username" autocapitalize="none" maxlength="20" />
+    <input type="password" id="password" class="input" placeholder="Password" aria-label="Password" autocomplete="current-password" />
+    <button class="btn btn-primary" onclick="window.handleAuth()" id="authBtn">Login</button>
+    <p style="margin-top: 20px; font-size: 14px; color: var(--muted);">
+      <span id="authSwitchText">New here?</span>
+      <a href="#" onclick="window.toggleAuth(event)" style="color: var(--primary); text-decoration: none; font-weight: 600;" id="authSwitchLink">Sign up</a>
+    </p>
+  </div>
+
+  <div id="page-pairing" class="card hidden">
+    <h2>Connect</h2>
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 15px;">Send this 6-digit code to your partner:</p>
+    <div id="myPairCode" style="display:inline-block; border:1px solid var(--primary); color:var(--primary); padding:12px 24px; border-radius:12px; font-size:24px; font-weight:600; letter-spacing:4px; margin:15px 0;">------</div>
+    <hr style="border-color: var(--border); margin: 20px 0;">
+    <p style="color: var(--muted); font-size: 14px; margin-bottom: 15px;">Or enter their username / code:</p>
+    <input type="text" id="partnerCodeInput" class="input" placeholder="USERNAME OR CODE" aria-label="Partner username or code" autocapitalize="none" />
+    <button class="btn btn-primary" onclick="window.linkPartner()" id="linkBtn">Link Accounts</button>
+    <p id="pairingStatus" style="color: var(--primary); margin-top: 15px; font-size: 14px; min-height: 18px;"></p>
+    <a href="#" onclick="window.logout()" class="settings-link">Log out</a>
+  </div>
+
+  <div id="page-lobby" class="card hidden" style="padding: 30px 20px;">
+    <div class="connection-status"><span class="status-dot"></span> CONNECTED</div>
+
+    <div class="players-row">
+      <span id="player1Name">...</span>
+      <svg class="heart-connect" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+      <span id="player2Name">...</span>
+    </div>
+
+    <div id="guestJoinPrompt" class="join-prompt hidden">
+      <h3 style="color: var(--primary); margin-bottom: 5px;">Game in Progress</h3>
+      <p id="guestGameName" style="font-weight: 600; font-size: 1.1rem; margin-bottom: 15px;">...</p>
+      <button class="btn btn-primary" onclick="window.joinPartnerGame()">Join Now</button>
+    </div>
+
+    <div style="margin-top: 40px;">
+      <h2 class="section-title">Choose Your Moment</h2>
+      <p class="section-subtitle">Pick a game and make some memories.</p>
+
+      <div id="hostControls">
+        <div class="game-card" onclick="window.startGame('moreLikely')">
+          <div class="game-icon">✨</div>
+          <h3>Who is more likely to...</h3>
+          <p>Discover what you really think about each other.</p>
+        </div>
+        <div class="game-card" onclick="window.startGame('neverHaveIEver')">
+          <div class="game-icon">🤫</div>
+          <h3>Never Have I Ever</h3>
+          <p>Reveal the unexpected things you have done.</p>
+        </div>
+        <div class="game-card" onclick="window.startGame('thisOrThat')">
+          <div class="game-icon">🎭</div>
+          <h3>This or That</h3>
+          <p>Pick a side and see if you match.</p>
+        </div>
+        <div class="game-card" onclick="window.goToLudo()">
+          <div class="game-icon">🎲</div>
+          <h3>Play Ludo</h3>
+          <p>A little friendly competition.</p>
+        </div>
+        <div style="margin: 20px 0; font-size: 14px; display: flex; justify-content: center;">
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="spicyToggle" style="transform: scale(1.2); accent-color: var(--primary);">
+            <span style="color: var(--primary); font-weight: 600;">Enable Spicy Mode</span>
+          </label>
+        </div>
+        <div id="hotRow" style="display:none; margin: -6px 0 16px; font-size: 14px; justify-content: center;">
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="hotToggle" style="transform: scale(1.2); accent-color: #ff6b6b;">
+            <span style="color: #ff6b6b; font-weight: 700;">🔥 Extra spicy (18+, very flirty)</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="guestControls" class="hidden">
+        <p style="color: var(--muted); margin-top: 30px; font-style: italic;">Waiting for host to choose a moment...</p>
+      </div>
+
+      <div class="game-card" onclick="window.location.href='watch.html'">
+          <div class="game-icon">🎬</div>
+          <h3>Watch Together</h3>
+          <p>Paste a video link and watch in sync.</p>
+        </div>
+
+        <div class="game-card" onclick="window.location.href='games.html'">
+          <div class="game-icon">🎮</div>
+          <h3>More Games</h3>
+          <p>Connect Four, Draw &amp; Guess, Truth or Dare and more.</p>
+        </div>
+
+        <div class="game-card chat-card" style="margin-top: 30px;" onclick="window.openChat()">
+        <h3>Your Private Space</h3>
+        <p>Talk, laugh and share moments together.</p>
+        <button class="btn" style="margin: 0; width: auto; padding: 10px 20px; font-size: 14px;">OPEN CHAT<span class="chat-badge"></span></button>
+      </div>
+
+      <br>
+      <a href="#" onclick="document.getElementById('ludoImageUpload').click(); return false;" class="settings-link" id="ludoUploadLink">Upload Photo for Ludo</a>
+      <span style="color: var(--border); margin: 0 10px;">|</span>
+      <a href="#" onclick="window.leavePartner(); return false;" class="settings-link">Disconnect Partner</a>
+      <br><br>
+      <a href="#" onclick="window.logout(); return false;" class="settings-link">Log out</a>
+    </div>
+  </div>
+
+  <div id="page-game" class="card hidden">
+    <div class="game-top">
+      <div id="roundBadge" class="badge">ROUND 1</div>
+      <div id="timerDisplay" class="timer-text">20s</div>
+    </div>
+    <div class="timer-track" id="timerTrack"><div id="timerBar"></div></div>
+    <div id="questionDisplay" class="question">Loading...</div>
+    <div id="voteButtonsContainer" class="vote-grid"></div>
+    <div id="resultContainer" class="hidden"></div>
+    <div id="myVoteStatus" class="vote-status"></div>
+    <div id="waitingStatus" class="vote-status pulse hidden"></div>
+
+    <button class="btn" onclick="window.openChat()" style="margin-top: 20px;">💬 Open Chat<span class="chat-badge"></span></button>
+    <button class="btn btn-ghost" onclick="window.leaveGame()" style="margin-top: 6px;">Leave Game</button>
+  </div>
+
+  <div id="page-summary" class="card hidden">
+    <h2>Game Over</h2>
+    <p style="color: var(--muted); margin-bottom: 20px;">You matched on <span id="finalMatchCount" style="color:var(--primary); font-weight:bold; font-size:1.2rem;">0</span> out of <span id="finalTotal">10</span> rounds!</p>
+    <div id="summaryContainer" style="max-height: 320px; overflow-y: auto; text-align: left; margin-bottom: 20px;"></div>
+    <button class="btn btn-primary" onclick="window.backToLobby()">Back to Lobby</button>
+  </div>
+
+  <div id="page-chat" class="card hidden">
+    <h2>Your Private Space</h2>
+    <div id="chatBox" class="chat-box"></div>
+    <div id="typingIndicator" class="hidden">Partner is typing...</div>
+    <div class="chat-input-container">
+      <input type="text" id="chatInput" class="input" placeholder="Type a message..." aria-label="Message" maxlength="500" autocomplete="off" oninput="window.handleTyping()" onkeydown="window.handleChatEnter(event)">
+      <button class="btn btn-primary" onclick="window.sendChat()">Send</button>
+    </div>
+    <br>
+    <button class="btn btn-ghost" onclick="window.closeChat()">Back</button>
+  </div>
+</div>
+
+<script>setTimeout(function(){if(!window.__shizuReady){var s=document.getElementById('splash-screen');if(s)s.innerHTML='<h1 class="splash-logo" style="opacity:1">SHIZU</h1><p class="splash-sub" style="opacity:1">Could not load. Check your connection.</p><button class="btn btn-primary" style="max-width:220px;margin-top:18px" onclick="location.reload()">Retry</button>';}},9000);</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import {
+    getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, query, orderBy,
+    limit, serverTimestamp, getDocs, where, deleteDoc, runTransaction, writeBatch
+  } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  import { initChat } from './chat.js';
+  import { pickQuestions } from './questions.js';
+  const firebaseConfig = {
+    apiKey: "AIzaSyAQg9F4Sn3GsZOghWxSJqwbLMsJetvo03w",
+    authDomain: "shizu-c984a.firebaseapp.com",
+    projectId: "shizu-c984a",
+    storageBucket: "shizu-c984a.firebasestorage.app",
+    messagingSenderId: "512395203618",
+    appId: "1:512395203618:web:496a2f959a3545975c667b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.__shizuReady = true;
+
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx9DwCUGQtAfTHcPGj62BIyvUhIz-NH4jpx6_jZV8e_DlqRw4J0jdJsB9nQHPXIUgVN4g/exec";
+  // Optional: set the same value as the API_SECRET script property in Apps Script. Leave "" to disable.
+  const API_SECRET = "";
+
+  const ROUND_SECONDS = 20;
+  const RESULT_DELAY = 3500;
+  const USERNAME_RE = /^[a-zA-Z0-9]{3,20}$/;
+  // Two-person app: put the two lowercase usernames here (and in firestore.rules) so nobody else can sign up or be paired.
+  const ALLOWED_USERS = [];
+  const MODE_LABELS = { moreLikely: 'Who is more likely to...', neverHaveIEver: 'Never Have I Ever', thisOrThat: 'This or That' };
+  // Where questions come from: 'builtin' (large built-in bank, works offline), 'server' (Apps Script only), 'auto' (server, then built-in)
+  const QUESTION_SOURCE = 'builtin';
+
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- state ----------
+  let currentUser = '', roomId = '', partnerName = '', isHost = false;
+  let currentMode = 'moreLikely', currentQuestionText = '', currentRound = 0, currentGameId = null;
+  let currentQuestions = [], allVotes = [];
+  let lastPageBeforeChat = 'page-lobby', currentPage = '';
+  let isSignupMode = false;
+  let unsubSelf = null, unsubRoom = null, unsubVotes = null, unsubChat = null;
+  let hasJoined = false, summaryRendered = false, hasVoted = false, isStarting = false;
+  let timerInterval = null, overlayTO = null, advanceTO = null;
+  let lastResultRound = null, advancingRound = null;
+  let lastGameState = null, firstSelfSnap = true;
+  let typingPrimed = false, lastSeenTyping = 0, typingHideTO = null, lastTypingSent = 0;
+  let toastTO = null, modalResolve = null, partnerJoined = false, lastWatchTs = null, lastGameTs = null, unsubChatWatch = null, unreadCount = 0;
+
+  // ---------- helpers ----------
+  function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>'"]/g, (tag) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+  }
+
+  async function sha256(str) {
+    const buf = new TextEncoder().encode(str);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // v2 hash is salted with the username so equal passwords don't give equal hashes
+  async function hashPassword(user, pass) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', iterations: 150000, salt: enc.encode('shizu:v3:' + user.toLowerCase()) }, key, 256);
+    return 'v3:' + Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.innerText = msg;
+    t.classList.add('show');
+    clearTimeout(toastTO);
+    toastTO = setTimeout(() => t.classList.remove('show'), 3200);
+  }
+
+  function askConfirm(title, msg, okText = 'OK') {
+    return new Promise((resolve) => {
+      $('modalTitle').innerText = title;
+      $('modalMessage').innerText = msg;
+      $('modalConfirmBtn').innerText = okText;
+      $('appModal').classList.add('active');
+      modalResolve = resolve;
+    });
+  }
+  function closeModal(result) {
+    $('appModal').classList.remove('active');
+    const fn = modalResolve;
+    modalResolve = null;
+    if (fn) fn(result);
+  }
+
+  function vibrate(ms = 20) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+  function setBusy(btn, busy, busyText) {
+    if (busy) { btn.dataset.label = btn.innerText; btn.innerText = busyText || '...'; btn.disabled = true; }
+    else { btn.innerText = btn.dataset.label || btn.innerText; btn.disabled = false; }
+  }
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const roomRef = () => doc(db, 'rooms', roomId);
+
+  function createHearts() {
+    const bg = $('heartBg');
+    const heartSVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+    for (let i = 0; i < 12; i++) {
+      const heart = document.createElement('div');
+      heart.className = 'heart-particle';
+      heart.innerHTML = heartSVG;
+      heart.style.left = `${Math.random() * 100}vw`;
+      heart.style.animationDelay = `${Math.random() * 8}s`;
+      heart.style.animationDuration = `${7 + Math.random() * 6}s`;
+      bg.appendChild(heart);
+    }
+  }
+  createHearts();
+
+  const PAGES = ['page-auth', 'page-pairing', 'page-lobby', 'page-game', 'page-chat', 'page-summary'];
+  function showPage(pageId) {
+    PAGES.forEach(id => $(id).classList.add('hidden'));
+    $('boot').classList.add('hidden');
+    $(pageId).classList.remove('hidden');
+    currentPage = pageId;
+  }
+  // switch game pages without yanking the user out of the chat
+  function navigateGame(pageId) {
+    if (currentPage === 'page-chat') lastPageBeforeChat = pageId;
+    else showPage(pageId);
+  }
+
+  // ---------- boot ----------
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      $('splash-screen').classList.add('fade-out');
+      setTimeout(async () => {
+        $('splash-screen').style.display = 'none';
+        const savedUser = localStorage.getItem('shizu_user');
+        const savedPass = localStorage.getItem('shizu_pass');
+        if (savedUser && savedPass) {
+          $('boot').classList.remove('hidden');
+          try {
+            const ok = await loginWithStoredHash(savedUser, savedPass);
+            if (!ok) {
+              localStorage.removeItem('shizu_pass');
+              showPage('page-auth');
+            }
+          } catch (e) {
+            console.error(e);
+            toast('Network problem. Please try again.');
+            showPage('page-auth');
+          }
+        } else {
+          showPage('page-auth');
+        }
+      }, 450);
+    }, 1500);
+  });
+
+  $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('password').focus(); } });
+  $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleAuth(); } });
+  $('partnerCodeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); linkPartner(); } });
+
+  // ---------- auth ----------
+  function toggleAuth(e) {
+    if (e) e.preventDefault();
+    isSignupMode = !isSignupMode;
+    $('authTitle').innerText = isSignupMode ? 'Create Account' : 'Welcome Back';
+    $('authBtn').innerText = isSignupMode ? 'Sign Up' : 'Login';
+    $('authSwitchText').innerText = isSignupMode ? 'Already have an account?' : 'New here?';
+    $('authSwitchLink').innerText = isSignupMode ? 'Login' : 'Sign up';
+    $('password').setAttribute('autocomplete', isSignupMode ? 'new-password' : 'current-password');
+  }
+
+  async function handleAuth() {
+    const btn = $('authBtn');
+    if (btn.disabled) return;
+    const user = $('username').value.trim();
+    const pass = $('password').value.trim();
+    if (!user || !pass) return toast('Please fill both fields.');
+
+    if (isSignupMode) {
+      if (!USERNAME_RE.test(user)) return toast('Username: 3-20 letters or numbers only.');
+      if (ALLOWED_USERS.length && !ALLOWED_USERS.includes(user.toLowerCase())) return toast('Only the two invited usernames can sign up.');
+      if (pass.length < 8) return toast('Password must be at least 8 characters.');
+    }
+
+    setBusy(btn, true, isSignupMode ? 'Creating…' : 'Signing in…');
+    try {
+      if (isSignupMode) {
+        const hashed = await hashPassword(user, pass);
+        const ref = doc(db, 'users', user.toLowerCase());
+        const pairCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const data = { displayName: user, password: hashed, pairCode, partner: '', roomId: '', avatar: '' };
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref);
+          if (snap.exists()) throw new Error('TAKEN');
+          tx.set(ref, data);
+        });
+        completeLogin(data, hashed);
+      } else {
+        const ok = await loginWithPassword(user, pass);
+        if (!ok) toast('Invalid username or password.');
+      }
+    } catch (e) {
+      console.error(e);
+      toast(e.message === 'TAKEN' ? 'Username taken.' : 'Network problem. Please try again.');
+    } finally {
+      setBusy(btn, false);
+    }
+  }
+
+  async function loginWithPassword(user, pass) {
+    const ref = doc(db, 'users', user.toLowerCase());
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return false;
+    const data = snap.data();
+    const v2 = await hashPassword(user, pass);
+
+    let ok = false;
+    if (data.password === v2) {
+      ok = true;
+    } else {
+      // migrate accounts created by older versions (unsalted hash or plain text)
+      const legacy = await sha256(pass);
+      if (data.password === legacy || data.password === pass || data.password === await sha256(`shizu:v2:${user.toLowerCase()}:${pass}`)) {
+        ok = true;
+        try { await updateDoc(ref, { password: v2 }); data.password = v2; } catch (e) {}
+      }
+    }
+    if (!ok) return false;
+    completeLogin(data, data.password === v2 ? v2 : data.password);
+    return true;
+  }
+
+  async function loginWithStoredHash(user, hash) {
+    const snap = await getDoc(doc(db, 'users', user.toLowerCase()));
+    if (!snap.exists()) return false;
+    const data = snap.data();
+    if (data.password !== hash) return false;
+    completeLogin(data, hash);
+    return true;
+  }
+
+  function completeLogin(data, hash) {
+    currentUser = data.displayName;
+    localStorage.setItem('shizu_user', currentUser);
+    localStorage.setItem('shizu_pass', hash);
+    firstSelfSnap = true;
+    startSelfListener();
+  }
+
+  // Watches MY user doc so pairing / disconnecting on either side is reflected instantly
+  function startSelfListener() {
+    if (unsubSelf) unsubSelf();
+    unsubSelf = onSnapshot(doc(db, 'users', currentUser.toLowerCase()), (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      $('myPairCode').innerText = d.pairCode || '------';
+
+      if (firstSelfSnap) {
+        firstSelfSnap = false;
+        if (d.roomId) { roomId = d.roomId; partnerName = d.partner; enterLobby(); }
+        else showPage('page-pairing');
+        return;
+      }
+      if (d.roomId && d.roomId !== roomId) {
+        roomId = d.roomId; partnerName = d.partner;
+        resetGameState();
+        enterLobby();
+        toast(`Connected with ${partnerName} 💞`);
+      } else if (!d.roomId && roomId) {
+        teardownRoom();
+        showPage('page-pairing');
+        toast('You are no longer connected to a partner.');
+      }
+    }, (err) => { console.error('Self snapshot error:', err); toast('Cannot reach the server. Please try again.'); showPage('page-auth'); });
+  }
+
+  // ---------- Ludo photo ----------
+  function handleLudoImageUpload(event) {
+    const input = event.target;
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const link = $('ludoUploadLink');
+    const original = 'Upload Photo for Ludo';
+
+    if (file.size > 5000000) { input.value = ''; return toast('Image is too large. Please choose one under 5MB.'); }
+    if (!file.type.startsWith('image/')) { input.value = ''; return toast('Please choose an image file.'); }
+
+    link.innerText = 'Uploading...';
+    const reader = new FileReader();
+    reader.onerror = () => { link.innerText = original; input.value = ''; toast('Could not read that image.'); };
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => { link.innerText = original; input.value = ''; toast('That image could not be opened.'); };
+      img.onload = () => {
+        const MAX = 150;
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } }
+        else if (h > MAX) { w *= MAX / h; h = MAX; }
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(w));
+        canvas.height = Math.max(1, Math.round(h));
+        const ctx = canvas.getContext('2d'); ctx.fillStyle = '#222'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+        updateDoc(doc(db, 'users', currentUser.toLowerCase()), { avatar: dataUrl })
+          .then(() => { link.innerText = 'Photo Saved!'; setTimeout(() => link.innerText = original, 2000); })
+          .catch((err) => { toast('Upload failed: ' + err.message); link.innerText = original; })
+          .finally(() => { input.value = ''; });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---------- pairing ----------
+  async function linkPartner() {
+    const btn = $('linkBtn');
+    if (btn.disabled) return;
+    const input = $('partnerCodeInput').value.trim();
+    if (!input) return toast('Enter a username or code.');
+
+    const status = $('pairingStatus');
+    status.innerText = 'Linking...';
+    btn.disabled = true;
+
+    try {
+      let partnerRef = doc(db, 'users', input.toLowerCase());
+      let partnerSnap = await getDoc(partnerRef);
+
+      if (!partnerSnap.exists()) {
+        const qs = await getDocs(query(collection(db, 'users'), where('pairCode', '==', input), limit(1)));
+        if (!qs.empty) { partnerSnap = qs.docs[0]; partnerRef = partnerSnap.ref; }
+      }
+      if (!partnerSnap.exists()) { status.innerText = ''; return toast('Partner not found.'); }
+
+      const myRef = doc(db, 'users', currentUser.toLowerCase());
+      if (partnerRef.id === myRef.id) { status.innerText = ''; return toast('You cannot pair with yourself.'); }
+
+      if (ALLOWED_USERS.length && !ALLOWED_USERS.includes(partnerRef.id)) { status.innerText = ''; return toast('Partner not found.'); }
+      const newRoomId = [myRef.id, partnerRef.id].sort().join('__');
+
+      // Atomic: both sides are checked and linked together, so nobody can be double-paired
+      await runTransaction(db, async (tx) => {
+        const [m, p] = await Promise.all([tx.get(myRef), tx.get(partnerRef)]);
+        if (m.data().roomId) throw new Error('ME_PAIRED');
+        if (p.data().roomId) throw new Error('PARTNER_PAIRED');
+        tx.update(myRef, { partner: p.data().displayName, roomId: newRoomId });
+        tx.update(partnerRef, { partner: m.data().displayName, roomId: newRoomId });
+      });
+      status.innerText = '';
+      $('partnerCodeInput').value = '';
+      // startSelfListener() routes us into the lobby
+    } catch (e) {
+      status.innerText = '';
+      console.error(e);
+      if (e.message === 'PARTNER_PAIRED') toast('That person is already paired with someone.');
+      else if (e.message === 'ME_PAIRED') toast('You are already paired.');
+      else toast('Could not link. Check your connection.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function leavePartner() {
+    const ok = await askConfirm('Disconnect', `Disconnect from ${partnerName}?`, 'Disconnect');
+    if (!ok) return;
+    const myRef = doc(db, 'users', currentUser.toLowerCase());
+    const theirRef = doc(db, 'users', partnerName.toLowerCase());
+    try {
+      const batch = writeBatch(db);
+      batch.update(myRef, { partner: '', roomId: '' });
+      batch.update(theirRef, { partner: '', roomId: '' });
+      batch.set(roomRef(), { gameState: { status: 'lobby' } }, { merge: true });
+      await batch.commit();
+    } catch (e) {
+      console.error(e);
+      try { await updateDoc(myRef, { partner: '', roomId: '' }); }
+      catch (e2) { toast('Could not disconnect. Check your connection.'); }
+    }
+    // the self listener tears everything down
+  }
+
+  function resetGameState() {
+    clearGameTimers();
+    if (unsubVotes) { unsubVotes(); unsubVotes = null; }
+    hasJoined = false; hasVoted = false; summaryRendered = false; isStarting = false;
+    currentGameId = null; currentRound = 0; currentQuestions = []; allVotes = [];
+    lastResultRound = null; lastGameState = null; typingPrimed = false; lastSeenTyping = 0;
+  }
+
+  function teardownRoom() {
+    if (unsubRoom) { unsubRoom(); unsubRoom = null; }
+    if (unsubChat) { unsubChat(); unsubChat = null; }
+    resetGameState();
+    if (unsubChatWatch) { unsubChatWatch(); unsubChatWatch = null; }
+    unreadCount = 0; partnerJoined = false;
+    roomId = ''; partnerName = '';
+    localStorage.removeItem('shizu_room');
+    localStorage.removeItem('shizu_partner');
+    $('hostControls').classList.remove('busy');
+  }
+
+  // ---------- lobby / room ----------
+  function enterLobby() {
+    localStorage.setItem('shizu_room', roomId);
+    localStorage.setItem('shizu_partner', partnerName);
+
+    $('player1Name').innerText = currentUser;
+    $('player2Name').innerText = partnerName;
+
+    isHost = currentUser.toLowerCase() < partnerName.toLowerCase();
+    $('hostControls').classList.toggle('hidden', !isHost);
+    $('guestControls').classList.toggle('hidden', isHost);
+    showPage('page-lobby');
+
+    if (unsubRoom) unsubRoom();
+    typingPrimed = false;
+    unsubRoom = onSnapshot(roomRef(), onRoomSnapshot, (err) => console.error('Room snapshot error:', err));
+    startChatWatch();
+  }
+
+  function updateJoinPrompt() {
+    const gs = lastGameState;
+    let label = null;
+    if (gs && !isStarting) {
+      if (gs.status === 'ludo') label = 'Ludo';
+      else if (gs.status === 'playing' && !hasJoined) label = (MODE_LABELS[gs.mode] || 'Game') + (gs.hot ? ' 🔥' : gs.spicy ? ' 🌶️' : '');
+    }
+    $('guestJoinPrompt').classList.toggle('hidden', !label);
+    if (label) $('guestGameName').innerText = label;
+  }
+
+  function onRoomSnapshot(snap) {
+    const data = snap.exists() ? snap.data() : {};
+    onTypingData(data.typing);
+    const wp = data.watchPing;
+    if (wp) { if (lastWatchTs !== null && wp.ts !== lastWatchTs && wp.by !== currentUser) toast(`🎬 ${wp.by} loaded a video — open Watch Together`); lastWatchTs = wp.ts; }
+    else if (lastWatchTs === null) lastWatchTs = 0;
+    const gp = data.gamePing;
+    if (gp) { if (lastGameTs !== null && gp.ts !== lastGameTs && gp.by !== currentUser) toast(`🎮 ${gp.by} opened a game — check More Games`); lastGameTs = gp.ts; }
+    else if (lastGameTs === null) lastGameTs = 0;
+    const jg = data.joined ? data.joined[partnerName.toLowerCase()] : '';
+    const wasJoined = partnerJoined;
+    partnerJoined = !!jg && !!data.gameState && jg === data.gameState.gameId;
+    onPartnerPresence(wasJoined);
+
+    if (isStarting) return;               // our own startGame() is mid-flight
+    const gs = data.gameState || null;
+    lastGameState = gs;
+    updateJoinPrompt();
+    if (!gs) return;
+
+    if (hasJoined && gs.status === 'playing') {
+      if (gs.gameId !== currentGameId) {
+        if (gs.spicy) { leaveGame(); toast(`${partnerName} started a spicy round — tap Join Now to play.`); } else enterGame(gs);
+      } else if (gs.round !== currentRound) {
+        currentRound = gs.round;
+        currentQuestionText = gs.question;
+        loadQuestionUI(false);
+      }
+    } else if (hasJoined && gs.status === 'finished' && gs.gameId === currentGameId) {
+      showSummary();
+    }
+  }
+
+  async function joinPartnerGame() {
+    try {
+      const snap = await getDoc(roomRef());
+      const gs = snap.exists() ? snap.data().gameState : null;
+      if (!gs) return;
+      if (gs.status === 'ludo') { window.location.href = 'ludo.html'; return; }
+      if (gs.status === 'playing') {
+        if (gs.spicy && !(await askConfirm(gs.hot ? 'Extra spicy 🔥' : 'Spicy round 🌶️', gs.hot ? `${partnerName} picked EXTRA spicy mode (very flirty and steamy, 18+). Join?` : `${partnerName} picked Spicy Mode (adult, flirty questions). Join?`, 'Join'))) return;
+        enterGame(gs);
+      }
+      else toast('That game has already ended.');
+    } catch (e) {
+      console.error(e);
+      toast('Could not join. Please try again.');
+    }
+  }
+
+  async function goToLudo() {
+    if (lastGameState && lastGameState.status === 'playing' && !(await askConfirm('Switch game?', 'A quiz round is in progress. Switch to Ludo?', 'Switch'))) return;
+    try {
+      await setDoc(roomRef(), { gameState: { status: 'ludo' } }, { merge: true });
+      window.location.href = 'ludo.html';
+    } catch (e) {
+      console.error(e);
+      toast('Could not start Ludo. Check your connection.');
+    }
+  }
+
+  // ---------- starting a game (host) ----------
+  async function fetchQuestions(mode, spice) {
+    let lastError = 'Server busy. Please try again.';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 25000);
+      try {
+        const res = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'fetchQuestions', mode, spice, secret: API_SECRET }),
+          signal: ctrl.signal
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        if (data.questions && data.questions.length >= 10) return data;
+        lastError = data.reason || 'Not enough questions yet. Please try again in a minute.';
+        if (!/busy/i.test(lastError)) break;
+      } catch (e) {
+        lastError = e.name === 'AbortError' ? 'The question server took too long.' : (e.message || 'Network error.');
+        if (e.message === 'Unauthorized') break;
+      } finally {
+        clearTimeout(timeout);
+      }
+      await sleep(1200);
+    }
+    throw new Error(lastError);
+  }
+
+  async function startGame(mode) {
+    if (!isHost || isStarting) return;
+    isStarting = true;
+    $('hostControls').classList.add('busy');
+    updateJoinPrompt();
+    toast('Getting your questions…');
+
+    try {
+      const spicy = $('spicyToggle').checked;
+      const hot = spicy && $('hotToggle').checked;
+      const spice = hot ? 'hot' : spicy ? 'spicy' : 'normal';
+      let result = { questions: [] };
+      if (QUESTION_SOURCE !== 'builtin' && spice !== 'hot') {
+        try { result = await fetchQuestions(mode, spice); }
+        catch (err) { if (QUESTION_SOURCE === 'server') throw err; toast('Server unavailable — using built-in questions.'); }
+      }
+      if (!result.questions || result.questions.length < 10) result = { questions: pickQuestions(mode, spice, 10) };
+      if (result.fallback) toast('Not enough spicy questions yet — using normal ones.');
+
+      const questions = shuffle(result.questions).slice(0, 10);
+      const gameId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const gs = { mode, round: 1, question: questions[0], questions, status: 'playing', host: currentUser, gameId, spicy, hot };
+
+      await setDoc(roomRef(), { gameState: gs }, { merge: true });
+      cleanupOldVotes(gameId);
+      isStarting = false;
+      enterGame(gs);
+    } catch (e) {
+      console.error(e);
+      toast(e.message || 'Could not start the game.');
+    } finally {
+      isStarting = false;
+      $('hostControls').classList.remove('busy');
+      updateJoinPrompt();
+    }
+  }
+
+  // best effort: remove votes of finished games so the collection doesn't grow forever
+  async function cleanupOldVotes(currentId) {
+    try {
+      const snap = await getDocs(collection(db, 'rooms', roomId, 'votes'));
+      await Promise.all(snap.docs.filter(d => d.data().gameId !== currentId).map(d => deleteDoc(d.ref)));
+    } catch (e) { /* not critical */ }
+  }
+
+  // ---------- presence: both players must be in the game before the clock runs ----------
+  const markJoined = (gid) => setDoc(roomRef(), { joined: { [currentUser.toLowerCase()]: gid } }, { merge: true }).catch(() => {});
+  function onPartnerPresence(was) {
+    if (!hasJoined || !currentGameId) return;
+    const note = $('waitingStatus');
+    const roundOpen = !hasVoted && lastResultRound !== currentRound;
+    if (partnerJoined && !was && roundOpen && !timerInterval && !$('transition-overlay').classList.contains('active')) startTimer();
+    if (!partnerJoined && was && !(lastGameState && lastGameState.status === 'finished')) toast(`${partnerName} left the game.`);
+    if (!partnerJoined && roundOpen) { note.innerText = `Waiting for ${partnerName} to join…`; note.classList.remove('hidden'); }
+    else if (partnerJoined && !hasVoted) note.classList.add('hidden');
+  }
+
+  // ---------- playing ----------
+  function enterGame(gs) {
+    clearGameTimers();
+    if (unsubVotes) { unsubVotes(); unsubVotes = null; }
+
+    currentMode = gs.mode;
+    currentGameId = gs.gameId;
+    currentRound = gs.round;
+    currentQuestionText = gs.question;
+    currentQuestions = gs.questions || [];
+    summaryRendered = false; hasVoted = false;
+    allVotes = []; lastResultRound = null; advancingRound = null;
+    hasJoined = true;
+    markJoined(gs.gameId);
+    updateJoinPrompt();
+
+    navigateGame('page-game');
+    subscribeVotes();
+    loadQuestionUI(true);
+  }
+
+  function subscribeVotes() {
+    const q = query(collection(db, 'rooms', roomId, 'votes'), where('gameId', '==', currentGameId));
+    unsubVotes = onSnapshot(q, (snap) => {
+      allVotes = snap.docs.map(d => d.data());
+      syncRoundState();
+    }, (err) => console.error('Votes error:', err));
+  }
+
+  const votesForRound = (r) => allVotes.filter(v => v.round === r);
+
+  function syncRoundState() {
+    if (!hasJoined || !currentGameId) return;
+    const votes = votesForRound(currentRound);
+    const mine = votes.find(v => v.voter === currentUser);
+    const theirs = votes.find(v => v.voter === partnerName);
+
+    if (mine && !hasVoted) markVoted(mine.target);
+
+    if (mine && theirs) {
+      if (lastResultRound !== currentRound) {
+        lastResultRound = currentRound;
+        showRoundResult(mine, theirs);
+      }
+      scheduleAdvance(currentRound);   // either player can advance (the host goes first, the guest is the fallback)
+    }
+  }
+
+  function scheduleAdvance(round) {
+    if (advancingRound === round) return;
+    advancingRound = round;
+    const gid = currentGameId;
+    advanceTO = setTimeout(async () => {
+      if (gid !== currentGameId || round !== currentRound) return;
+      try {
+        await runTransaction(db, async (tx) => {
+          const g = ((await tx.get(roomRef())).data() || {}).gameState;
+          if (!g || g.gameId !== gid || g.round !== round || g.status !== 'playing') return;   // someone already advanced
+          if (round >= (g.questions || []).length) tx.update(roomRef(), { 'gameState.status': 'finished' });
+          else tx.update(roomRef(), { 'gameState.round': round + 1, 'gameState.question': g.questions[round] });
+        });
+      } catch (e) {
+        console.error(e);
+        advancingRound = null;
+        toast('Connection hiccup — retrying…');
+        setTimeout(syncRoundState, 2000);
+      }
+    }, isHost ? RESULT_DELAY : RESULT_DELAY + 3500);
+  }
+
+  function clearGameTimers() {
+    stopTimer();
+    clearTimeout(overlayTO); overlayTO = null;
+    clearTimeout(advanceTO); advanceTO = null;
+    advancingRound = null;
+    $('transition-overlay').classList.remove('active');
+  }
+
+  function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
+
+  function startTimer() {
+    stopTimer();
+    const deadline = Date.now() + ROUND_SECONDS * 1000;
+    const bar = $('timerBar');
+    bar.style.transition = 'none';
+    bar.style.transform = 'scaleX(1)';
+    void bar.offsetWidth;
+    bar.style.transition = `transform ${ROUND_SECONDS}s linear`;
+    bar.style.transform = 'scaleX(0)';
+
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      $('timerDisplay').innerText = `${left}s`;
+      const urgent = left <= 5;
+      $('timerDisplay').classList.toggle('urgent', urgent);
+      $('timerTrack').classList.toggle('urgent', urgent);
+      if (left <= 0) {
+        stopTimer();
+        if (!hasVoted) submitVote('Time out');
+      }
+    };
+    tick();
+    timerInterval = setInterval(tick, 250);
+  }
+
+  function resetTimerUI() {
+    const bar = $('timerBar');
+    bar.style.transition = 'none';
+    bar.style.transform = 'scaleX(1)';
+    $('timerDisplay').innerText = `${ROUND_SECONDS}s`;
+    $('timerDisplay').classList.remove('urgent');
+    $('timerTrack').classList.remove('urgent', 'done');
+  }
+
+  function loadQuestionUI(withOverlay) {
+    stopTimer();
+    clearTimeout(overlayTO);
+    hasVoted = false;
+
+    $('myVoteStatus').innerText = '';
+    $('waitingStatus').classList.add('hidden');
+    $('roundBadge').innerText = `ROUND ${currentRound} OF ${currentQuestions.length || 10}`;
+
+    const q = $('questionDisplay');
+    q.innerText = currentQuestionText;
+    q.classList.remove('q-enter'); void q.offsetWidth; q.classList.add('q-enter');
+
+    $('voteButtonsContainer').classList.remove('hidden');
+    $('resultContainer').classList.add('hidden');
+    buildVoteButtons();
+    resetTimerUI();
+
+    syncRoundState();   // picks up votes that already exist (e.g. after rejoining)
+
+    onPartnerPresence(partnerJoined);
+
+    const needsTimer = () => !hasVoted && lastResultRound !== currentRound && partnerJoined;
+    if (withOverlay && !reducedMotion) {
+      const overlay = $('transition-overlay');
+      overlay.classList.add('active');
+      overlayTO = setTimeout(() => {
+        overlay.classList.remove('active');
+        if (needsTimer()) startTimer();
+      }, 1000);
+    } else if (needsTimer()) {
+      startTimer();
+    }
+  }
+
+  function displayVote(target) {
+    if (target === 'Time out') return 'Timed out';
+    if (currentMode === 'neverHaveIEver') return target === 'True' ? 'I have' : (target === 'False' ? "I haven't" : target);
+    return target;
+  }
+
+  function buildVoteButtons() {
+    const container = $('voteButtonsContainer');
+    container.innerHTML = '';
+
+    const addBtn = (label, value) => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-vote';
+      b.innerText = label;
+      b.dataset.value = value;
+      b.onclick = () => submitVote(value);
+      container.appendChild(b);
+    };
+
+    if (currentMode === 'moreLikely') {
+      [currentUser, partnerName].sort((a, b) => a.localeCompare(b)).forEach(p => addBtn(p, p));
+    } else if (currentMode === 'neverHaveIEver') {
+      addBtn('I have', 'True');
+      addBtn("I haven't", 'False');
+    } else {
+      let opt1 = 'First option', opt2 = 'Second option';
+      const text = currentQuestionText.replace(/^\s*this or that\s*:\s*/i, '').trim().replace(/\?$/, '');
+      const m = text.match(/\s+or\s+/i);
+      if (m) { opt1 = text.slice(0, m.index).trim(); opt2 = text.slice(m.index + m[0].length).trim(); }
+      addBtn(opt1, opt1);
+      addBtn(opt2, opt2);
+    }
+  }
+
+  function markVoted(target) {
+    hasVoted = true;
+    stopTimer();
+    $('timerTrack').classList.add('done');
+    $('voteButtonsContainer').querySelectorAll('.btn-vote').forEach(b => {
+      b.disabled = true;
+      if (b.dataset.value === target) b.classList.add('selected');
+    });
+    $('myVoteStatus').innerText = `You picked: ${displayVote(target)}`;
+    if (lastResultRound !== currentRound) {
+      const w = $('waitingStatus');
+      w.innerText = `Waiting for ${partnerName}…`;
+      w.classList.remove('hidden');
+    }
+  }
+
+  async function submitVote(target) {
+    if (hasVoted || !currentGameId) return;
+    const round = currentRound, gid = currentGameId;
+    markVoted(target);
+    vibrate(15);
+    try {
+      await setDoc(doc(db, 'rooms', roomId, 'votes', `${gid}_r${round}_${currentUser.toLowerCase()}`), {
+        gameId: gid, round, voter: currentUser, target
+      });
+    } catch (e) {
+      console.error(e);
+      if (gid === currentGameId && round === currentRound) {
+        hasVoted = false;
+        $('voteButtonsContainer').querySelectorAll('.btn-vote').forEach(b => { b.disabled = false; b.classList.remove('selected'); });
+        $('myVoteStatus').innerText = '';
+        $('waitingStatus').classList.add('hidden');
+        $('timerTrack').classList.remove('done');
+      }
+      toast('Could not send your vote. Please try again.');
+    }
+  }
+
+  function showRoundResult(mine, theirs) {
+    $('voteButtonsContainer').classList.add('hidden');
+    $('waitingStatus').classList.add('hidden');
+    stopTimer();
+
+    const isMatch = mine.target === theirs.target && mine.target !== 'Time out';
+    const box = $('resultContainer');
+    box.classList.remove('hidden');
+    box.innerHTML = `
+      <div class="result-card">
+        <div style="margin-bottom:10px;">You: <b>${escapeHTML(displayVote(mine.target))}</b> | ${escapeHTML(partnerName)}: <b>${escapeHTML(displayVote(theirs.target))}</b></div>
+        <div class="result-match ${isMatch ? 'yes' : ''}">${isMatch ? 'MATCH! 💖' : 'Different choices!'}</div>
+      </div>`;
+    if (isMatch) { burstHearts(); vibrate([30, 40, 30]); }
+  }
+
+  function burstHearts() {
+    if (reducedMotion) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'burst';
+    for (let i = 0; i < 14; i++) {
+      const s = document.createElement('span');
+      s.textContent = '❤';
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 80 + Math.random() * 90;
+      s.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+      s.style.setProperty('--dy', `${Math.sin(angle) * dist - 40}px`);
+      s.style.animationDelay = `${Math.random() * 0.1}s`;
+      wrap.appendChild(s);
+    }
+    document.body.appendChild(wrap);
+    setTimeout(() => wrap.remove(), 1300);
+  }
+
+  async function showSummary() {
+    if (summaryRendered) return;
+    summaryRendered = true;
+    clearGameTimers();
+    navigateGame('page-summary');
+
+    const container = $('summaryContainer');
+    container.innerText = 'Loading summary...';
+
+    let votes = allVotes;
+    try {
+      const snap = await getDocs(query(collection(db, 'rooms', roomId, 'votes'), where('gameId', '==', currentGameId)));
+      votes = snap.docs.map(d => d.data());
+    } catch (e) { /* fall back to the live copy */ }
+
+    const total = currentQuestions.length || 10;
+    let matchCount = 0;
+    const frag = document.createDocumentFragment();
+
+    for (let r = 1; r <= total; r++) {
+      const rv = votes.filter(v => v.round === r);
+      const my = rv.find(v => v.voter === currentUser);
+      const th = rv.find(v => v.voter === partnerName);
+      if (!my || !th) continue;
+      const isMatch = my.target === th.target && my.target !== 'Time out';
+      if (isMatch) matchCount++;
+
+      const item = document.createElement('div');
+      item.className = 'summary-item';
+      item.innerHTML =
+        `<span class="summary-q">${escapeHTML(currentQuestions[r - 1] || '')}</span>` +
+        `<b>Round ${r}:</b> You: ${escapeHTML(displayVote(my.target))} | ${escapeHTML(partnerName)}: ${escapeHTML(displayVote(th.target))}<br>` +
+        `<span style="color:${isMatch ? 'var(--green)' : 'var(--muted)'}; font-size:12px;">${isMatch ? 'Matched!' : 'Different'}</span>`;
+      frag.appendChild(item);
+    }
+
+    $('finalMatchCount').innerText = matchCount;
+    $('finalTotal').innerText = total;
+    container.innerHTML = '';
+    if (frag.childNodes.length) container.appendChild(frag);
+    else container.innerText = 'No votes recorded.';
+    if (matchCount >= Math.ceil(total / 2)) burstHearts();
+  }
+
+  function leaveGame() {
+    hasJoined = false;
+    markJoined('');
+    clearGameTimers();
+    if (unsubVotes) { unsubVotes(); unsubVotes = null; }
+    currentGameId = null;
+    showPage('page-lobby');
+    updateJoinPrompt();
+  }
+  function backToLobby() { leaveGame(); }
+
+  // ---------- chat ----------
+  function updateBadge() { document.querySelectorAll('.chat-badge').forEach(b => { b.textContent = unreadCount ? ` (${unreadCount})` : ''; }); }
+  function startChatWatch() {
+    if (unsubChatWatch) unsubChatWatch();
+    const c = initChat({
+      db, roomId, me: currentUser, partner: partnerName, widget: false,
+      shouldPopup: () => currentPage !== 'page-chat',
+      onIncoming: () => { if (currentPage !== 'page-chat') { unreadCount++; updateBadge(); } },
+      onPopupClick: () => openChat()
+    });
+    unsubChatWatch = c.destroy;
+  }
+  async function openChat() {
+    if (currentPage !== 'page-chat') lastPageBeforeChat = currentPage || 'page-lobby';
+    unreadCount = 0; updateBadge();
+    showPage('page-chat');
+    $('typingIndicator').classList.add('hidden');
+    if (unsubChat) unsubChat();
+
+    const q = query(collection(db, 'rooms', roomId, 'messages'), orderBy('time', 'desc'), limit(100));
+    unsubChat = onSnapshot(q, (snapshot) => {
+      const box = $('chatBox');
+      const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      const docs = snapshot.docs.slice().reverse();
+      const frag = document.createDocumentFragment();
+      let lastFromMe = false;
+
+      docs.forEach(messageDoc => {
+        // 'estimate' keeps just-sent messages visible before the server stamps them
+        const m = messageDoc.data({ serverTimestamps: 'estimate' });
+        const mine = m.user === currentUser;
+        lastFromMe = mine;
+        const div = document.createElement('div');
+        div.className = 'msg ' + (mine ? 'msg-me' : 'msg-other');
+        const meta = document.createElement('span');
+        meta.className = 'msg-meta';
+        meta.textContent = m.user;
+        div.appendChild(meta);
+        div.appendChild(document.createTextNode(m.text));
+        frag.appendChild(div);
+      });
+
+      box.innerHTML = '';
+      box.appendChild(frag);
+      if (nearBottom || lastFromMe) box.scrollTop = box.scrollHeight;
+      if (docs.length && !lastFromMe) $('typingIndicator').classList.add('hidden');
+    }, (error) => console.error(error));
+  }
+
+  function closeChat() {
+    if (unsubChat) { unsubChat(); unsubChat = null; }
+    $('typingIndicator').classList.add('hidden');
+    showPage(lastPageBeforeChat);
+  }
+
+  async function sendChat() {
+    const input = $('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    try {
+      await addDoc(collection(db, 'rooms', roomId, 'messages'), { user: currentUser, text, time: serverTimestamp() });
+    } catch (e) {
+      console.error(e);
+      input.value = text;
+      toast('Message not sent. Check your connection.');
+    }
+  }
+
+  function handleChatEnter(e) { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } }
+
+  function handleTyping() {
+    const now = Date.now();
+    if (now - lastTypingSent < 2500) return;
+    lastTypingSent = now;
+    setDoc(roomRef(), { typing: { [currentUser.toLowerCase()]: now } }, { merge: true }).catch(() => {});
+  }
+
+  // Compares the partner's marker with the previous one instead of comparing clocks
+  function onTypingData(typing) {
+    const value = typing ? typing[partnerName.toLowerCase()] : 0;
+    if (!typingPrimed) { typingPrimed = true; lastSeenTyping = value || 0; return; }
+    if (value && value !== lastSeenTyping) {
+      lastSeenTyping = value;
+      if (currentPage === 'page-chat') {
+        const el = $('typingIndicator');
+        el.innerText = `${partnerName} is typing...`;
+        el.classList.remove('hidden');
+        clearTimeout(typingHideTO);
+        typingHideTO = setTimeout(() => el.classList.add('hidden'), 3500);
+      }
+    }
+  }
+
+  // ---------- logout ----------
+  function logout() {
+    if (unsubSelf) unsubSelf();
+    if (unsubRoom) unsubRoom();
+    if (unsubVotes) unsubVotes();
+    if (unsubChat) unsubChat();
+    if (unsubChatWatch) unsubChatWatch();
+    localStorage.removeItem('shizu_user');
+    localStorage.removeItem('shizu_pass');
+    localStorage.removeItem('shizu_room');
+    localStorage.removeItem('shizu_partner');
+    window.location.reload();
+  }
+
+  $('spicyToggle').addEventListener('change', () => { $('hotRow').style.display = $('spicyToggle').checked ? 'flex' : 'none'; if (!$('spicyToggle').checked) $('hotToggle').checked = false; });
+  $('myPairCode').style.cursor = 'pointer';
+  $('myPairCode').title = 'Tap to copy';
+  $('myPairCode').addEventListener('click', async () => {
+    const t = $('myPairCode').innerText.trim(); if (!t) return;
+    try { await navigator.clipboard.writeText(t); toast('Code copied 💕'); } catch (e) { toast('Your code: ' + t); }
+  });
+
+  document.addEventListener('pointerdown', (e) => {
+    const b = e.target.closest('.btn,.game-card,.btn-vote'); if (!b || b.disabled) return;
+    const r = b.getBoundingClientRect(), sp = document.createElement('span');
+    sp.className = 'ripple'; sp.style.left = (e.clientX - r.left) + 'px'; sp.style.top = (e.clientY - r.top) + 'px';
+    b.appendChild(sp); setTimeout(() => sp.remove(), 700);
+  }, { passive: true });
+
+  Object.assign(window, {
+    toggleAuth, handleAuth, linkPartner, leavePartner, startGame, openChat, closeChat, sendChat,
+    leaveGame, logout, goToLudo, handleLudoImageUpload, joinPartnerGame, backToLobby,
+    handleChatEnter, handleTyping, closeModal
+  });
+</script>
+</body>
+</html>
